@@ -87,6 +87,80 @@ def calculate_velocity_vectors(df):
     
     return df
 
+def calculate_cut_coordinates(df):
+    """
+    Calculate transformed coordinates (x_parallel, x_perpendicular) based on cut axis.
+    The cut axis is defined by two cut points within each cell_id.
+    
+    For each cell_id:
+    - Find the two cut points
+    - Define cut axis vector and perpendicular vector
+    - Transform all points (cut and non-cut) to the new coordinate system
+    - x_parallel: distance along the cut axis (normalized by cut length)
+    - x_perpendicular: distance perpendicular to the cut axis
+    
+    Args:
+    - df: DataFrame with columns ["cell_id", "cut", "time", "x", "y"]
+    Returns:
+    - DataFrame with additional columns ["x_parallel", "x_perpendicular", "cut_length"]
+    """
+    
+    # Initialize new columns
+    df["x_parallel"] = np.nan
+    df["x_perpendicular"] = np.nan
+    df["cut_length"] = np.nan
+    
+    # Process each cell_id separately
+    for cell_id in df["cell_id"].unique():
+        cell_mask = df["cell_id"] == cell_id
+        cell_df = df[cell_mask]
+        
+        # Find cut points
+        cut_points = cell_df[cell_df["cut"] == True]
+            
+        if len(cut_points) > 2:
+            print(f"Warning: cell_id {cell_id!r} has more than 2 cut points; skipping cut coordinate calculation.", file=sys.stderr)
+            continue
+
+        if len(cut_points) < 2:
+            # Need at least 2 cut points to define an axis
+            print(f"Warning: cell_id {cell_id!r} has less than 2 cut points; skipping cut coordinate calculation.", file=sys.stderr)
+            continue
+        
+        # Use the first two cut points to define the axis
+        cut1 = cut_points.iloc[0]
+        cut2 = cut_points.iloc[1]
+        
+        # Calculate cut axis vector
+        cut_vector = np.array([cut2["x"] - cut1["x"], cut2["y"] - cut1["y"]])
+        cut_length = np.linalg.norm(cut_vector)
+        
+        if cut_length == 0:
+            # Degenerate case: both cut points are at the same location
+            print(f"Warning: cell_id {cell_id!r} has identical cut points; skipping cut coordinate calculation.", file=sys.stderr)
+            continue
+        
+        # Normalize cut vector
+        cut_unit = cut_vector / cut_length
+        
+        # Perpendicular vector (rotate 90 degrees counter-clockwise)
+        perp_unit = np.array([-cut_unit[1], cut_unit[0]])
+        
+        # Origin for transformation (use first cut point)
+        origin = np.array([cut1["x"], cut1["y"]])
+        
+        # Transform all points in this cell
+        for idx in cell_df.index:
+            point = np.array([df.loc[idx, "x"], df.loc[idx, "y"]])
+            relative_pos = point - origin
+            
+            # Project onto cut axis and perpendicular axis
+            df.loc[idx, "x_parallel"] = np.dot(relative_pos, cut_unit) / cut_length
+            df.loc[idx, "x_perpendicular"] = np.dot(relative_pos, perp_unit)
+            df.loc[idx, "cut_length"] = cut_length
+    
+    return df
+
 def parse_folder(folder):
     """
     Parse all .lineage files in the specified folder and compile into a single DataFrame.
@@ -132,14 +206,17 @@ def parse_folder(folder):
     # Calculate velocity vectors
     all_df = calculate_velocity_vectors(all_df)
     
-    # Reorder columns: point_id, cell_id, cut, time, x, y, vx, vy, velocity
-    all_df = all_df[["point_id", "cell_id", "cut", "time", "x", "y", "vx", "vy", "velocity"]]
+    # Calculate cut-based coordinate transformation
+    all_df = calculate_cut_coordinates(all_df)
+    
+    # Reorder columns: point_id, cell_id, cut, time, x, y, vx, vy, velocity, x_parallel, x_perpendicular, cut_length
+    all_df = all_df[["point_id", "cell_id", "cut", "time", "x", "y", "vx", "vy", "velocity", "x_parallel", "x_perpendicular", "cut_length"]]
     
     return all_df
 
 def main():
     # Parse command-line arguments
-    p = argparse.ArgumentParser(description="Parse .lineage files and output CSV with point_id,cell_id,cut,time,x,y,vx,vy,velocity")
+    p = argparse.ArgumentParser(description="Parse .lineage files and output CSV with point_id,cell_id,cut,time,x,y,vx,vy,velocity,x_parallel,x_perpendicular,cut_length")
     p.add_argument("folder", help="Folder containing .lineage files")
     p.add_argument("-o", "--out", help="Output CSV file")
     args = p.parse_args()
