@@ -1,0 +1,28 @@
+[workspace]
+authors = ["PolyRocketMatt <rocketpencil.studios@gmail.com>"]
+channels = ["conda-forge"]
+name = "ibp"
+platforms = ["win-64"]
+version = "0.1.0"
+
+[tasks]
+
+[dependencies]
+pandas = ">=2.3.3,<3"
+matplotlib = ">=3.10.6,<4"
+numpy = ">=2.3.3,<3"
+openpiv = ">=0.24.2,<0.25"
+pygments = ">=2.19.2,<3"
+ipykernel = ">=6.30.1,<7"
+czifile = ">=2019.7.2.1,<2020"
+tifffile = ">=2025.10.4,<2026"
+tqdm = ">=4.67.1,<5"
+scikit-image = ">=0.25.2,<0.26"
+pillow = ">=11.3.0,<12"
+jupyter = ">=1.1.1,<2"
+jupyter_core = ">=5.8.1,<6"
+notebook = ">=7.4.7,<8"
+qtconsole = ">=5.7.0,<6"
+nbconvert = ">=7.16.6,<8"
+nbformat = ">=5.10.4,<6"
+traitlets = ">=5.14.3,<6"

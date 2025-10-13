@@ -208,3 +208,7 @@ __marimo__/
 
 # Downloaded data folder
 data/
+
+# Pixi
+.pixi/
+data/
