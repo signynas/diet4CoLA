@@ -52,5 +52,5 @@ if __name__ == "__main__":
     utils.plot_velocities_over_time(df, output_path=os.path.join(output_path, "velocities_over_time.png"))
 
     # Animations
-    utils.animate_points_by_x_perpendicular(df, abs=False, fps=3, output_path=os.path.join(output_path, "animation_points_by_x_perpendicular.gif"))
-    utils.animate_points_by_x_perpendicular(df, abs=True, fps=3, output_path=os.path.join(output_path, "animation_points_by_abs_x_perpendicular.gif"))
+    utils.animate_points_by_x_perpendicular(df, abs=False, fps=3, output_path=os.path.join(output_path, "animation_points_by_x_perpendicular.mp4"))
+    utils.animate_points_by_x_perpendicular(df, abs=True, fps=3, output_path=os.path.join(output_path, "animation_points_by_abs_x_perpendicular.mp4"))

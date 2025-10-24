@@ -212,11 +212,17 @@ def animate_points_by_x_perpendicular(df: pd.DataFrame, abs: bool = True, bin_le
 
     # Save or return
     if output_path:
-        # ensure gif extension
-        if not output_path.lower().endswith('.gif'):
-            output_path = output_path + '.gif'
-        writer = PillowWriter(fps=fps)
-        anim.save(output_path, writer=writer)
+        # Determine file extension
+        ext = output_path.lower().split('.')[-1]
+        if ext == 'gif':
+            writer = PillowWriter(fps=fps)
+            anim.save(output_path, writer=writer)
+        else:
+            # Default to mp4 if not gif
+            if not output_path.lower().endswith('.mp4'):
+                output_path = output_path + '.mp4'
+            writer = animation.FFMpegWriter(fps=fps)
+            anim.save(output_path, writer=writer)
         plt.close(fig)
         return None
     else:
