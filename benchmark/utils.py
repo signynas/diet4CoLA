@@ -184,6 +184,28 @@ def animate_points_by_x_perpendicular(df: pd.DataFrame, abs: bool = True, bin_le
             ax.set_xlim(bins.min() - bin_length/2, bins.max() + bin_length/2)
 
         ax.set_ylim(0, max_y + 1)
+
+        # Add vertical red dashed lines for medians
+        if not abs:
+            less = tdf[tdf['x_perpendicular'] < 0]['x_perpendicular']
+            more = tdf[tdf['x_perpendicular'] > 0]['x_perpendicular']
+            if not less.empty:
+                median_less = np.median(less)
+                ax.axvline(median_less, color='red', linestyle='--', linewidth=2, label='Median')
+            if not more.empty:
+                median_more = np.median(more)
+                ax.axvline(median_more, color='red', linestyle='--', linewidth=2,)
+        else:
+            # For abs, just one median
+            if not data.empty:
+                median_abs = np.median(data)
+                ax.axvline(median_abs, color='red', linestyle='--', linewidth=2, label='Median')
+
+        # Only show legend on first frame if any median lines were drawn
+        handles, labels = ax.get_legend_handles_labels()
+        if handles:
+            ax.legend()
+
         return ax.patches
 
     anim = animation.FuncAnimation(fig, update, frames=len(offsets), repeat=False)
