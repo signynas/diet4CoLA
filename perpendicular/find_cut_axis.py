@@ -198,13 +198,14 @@ class FindCut:
         if print_info:
             print(f"The following modifications have been applied:\n{self.modifications}")
 
-    def blur_image(self, blur_kernel: int = 31, sigma: int = 3, update_origin: bool = True, show_blurred: bool = True, save_figure: bool = False, show_versions: bool = False, save_versions: bool = False):
+    def blur_image(self, blur_kernel: int = 31, sigma: int = 3, update_origin: bool = True, show_result: bool = True, save_result: bool = False, show_versions: bool = False, save_versions: bool = False):
         """
         Blurs the image by first downsampling and then applying a Gaussian Blur. Then it is 
         upsampled again for the next steps of the process. If show_versions is set to True, 
         a comparison plot will be created and shown, portraying the differences between the
-        original image, the downsampled one, and the downsampled and blurred image. If wished,
-        the figure can be saved to the ouput path.
+        original image, the downsampled one, and the downsampled and blurred image. By setting
+        save_result to True, the final figure after the method has been executed is saved to 
+        the ouput path.
         """
         # Downsample the image
         downsampled = cv2.resize(self.image, (132, 132), interpolation=self.interpolation_method)
@@ -213,13 +214,13 @@ class FindCut:
         # Upsample to original size 
         reupsampled = cv2.resize(downsampled_blurred, (512, 512), interpolation=self.interpolation_method)
 
-        if show_blurred or save_figure:
+        if show_result or save_result:
             plt.imshow(reupsampled, cmap=self.cmap); plt.title('Blurred Image'); plt.axis('off')
-            if save_figure:
+            if save_result:
                 path = os.path.join(self.output_path, f"blurred_{self.experiment}.jpg")
                 plt.savefig(path, dpi=300, bbox_inches='tight')
                 print(f"Blurred image was saved to {path}.")
-            if show_blurred:    
+            if show_result:    
                 plt.show()
 
         if show_versions or save_versions:
@@ -243,14 +244,45 @@ class FindCut:
             print("Original picture has now been updated as a blurred version!")
             return self
 
-    def find_cell_and_cut_edges(self):
+    def find_cell_and_cut_edges(self, show_result: bool = True, save_result: bool = False, show_steps: bool = False, save_steps: bool = False):
+        """
+        Finds the edges of the cell and the cut inside it. If Gaussian blur has not yet been applied,
+        this will be done automatically. If save_result is set to True, the final image after this
+        method has executed completely will be saved to the output path. If show_steps is set to True,
+        a figure with the different states of the image in each step of this method will be printed to
+        the screen. If save_steps is set to True, the figure will be saved to the output path.
+        """
+        # Blurring has to be applied to find cell and cut edges
+        if not 'Gaussian Blur' in self.modifications:
+            self.blur_image(show_blurred=False)
+            print("Gaussian blurring was not yet performed, applying modification now...")
+        
+        self._threshold_BW()
+        self._find_contours() # Make sure that the algorithm does not go any further if no cut is found!
+        self._find_furthest_points_in_cut()
+
+    def _threshold_BW(self):
+        pass
+
+    def _find_contours(self):
+        pass
+
+    def _find_furthest_points_in_cut(self):
+        pass
+
+    def fit_ellipse_and_axes(self, show_result: bool = True):
         pass
 
     def draw_lines(self):
         pass
 
-    def find_cut(self):
-        pass
+    def find_cut_auto(self, show_result: bool = True, save_result: bool = False, show_steps: bool = False, save_steps: bool = False, draw_lines: bool = True):
+        self.blur_image(show_result=False)
+        self.find_cell_and_cut_edges(show_result=False)
+        self.fit_ellipse_and_axes(show_result=False)
+        if draw_lines:
+            self.draw_lines()
+        
 
 if __name__ == '__main__':
 
@@ -268,5 +300,5 @@ if __name__ == '__main__':
     cut = FindCut(experiment)
     # cut.visualize_frame()
     # cut.visualize_annotated_cut()
-    cut.blur_image(show_blurred=False)
-    cut.show_current_image_info()
+    cut.blur_image()
+    cut.show_current_image_info(show_image=False)
