@@ -2,7 +2,7 @@ import matplotlib.pyplot as plt
 import pandas as pd
 import numpy as np
 
-def plot_points_by_x_parallel(df: pd.DataFrame, bins: int = None, output_path: str = None, cell_ids: list = None) -> None:
+def plot_points_vs_x_parallel(df: pd.DataFrame, bins: int = None, output_path: str = None, cell_ids: list = None) -> None:
     """
     Plots the number of unique points by their x_parallel position.
 
@@ -29,7 +29,7 @@ def plot_points_by_x_parallel(df: pd.DataFrame, bins: int = None, output_path: s
     first_timepoints = df.groupby('cell_id')['frame'].min().reset_index()
     df = df.merge(first_timepoints, on=['cell_id', 'frame'])
 
-    plt.figure(figsize=(9.5, 5))
+    plt.figure(figsize=(9.5, 5), dpi=300)
     plt.hist(df['x_parallel'], bins=bins, edgecolor='black')
     plt.xlabel('x_parallel (fraction of cut length)')
     plt.ylabel('Number of points')
@@ -44,7 +44,7 @@ def plot_points_by_x_parallel(df: pd.DataFrame, bins: int = None, output_path: s
     return
 
 
-def plot_points_by_x_perpendicular(df: pd.DataFrame, abs: bool = True, bins: int = None, output_path: str = None, cell_ids: list = None) -> None:
+def plot_points_vs_x_perpendicular(df: pd.DataFrame, abs: bool = True, bins: int = None, output_path: str = None, cell_ids: list = None) -> None:
     """
     Plots the number of unique points by their x_perpendicular position.
 
@@ -72,7 +72,7 @@ def plot_points_by_x_perpendicular(df: pd.DataFrame, abs: bool = True, bins: int
     first_timepoints = df.groupby('cell_id')['frame'].min().reset_index()
     df = df.merge(first_timepoints, on=['cell_id', 'frame'])
 
-    plt.figure(figsize=(9.5, 5))
+    plt.figure(figsize=(9.5, 5), dpi=300)
 
     if abs:
         df['x_perpendicular'] = df['x_perpendicular'].abs()
@@ -92,7 +92,7 @@ def plot_points_by_x_perpendicular(df: pd.DataFrame, abs: bool = True, bins: int
     return
 
 
-def animate_points_by_x_perpendicular(df: pd.DataFrame, abs: bool = True, bin_length: float = 5.0, 
+def animate_points_vs_x_perpendicular(df: pd.DataFrame, abs: bool = True, bin_length: float = 5.0, 
                                        start_offset: int = -1, end_offset: int = None,
                                        output_path: str = None, cell_ids: list = None, fps: int = 5):
     """
@@ -158,7 +158,7 @@ def animate_points_by_x_perpendicular(df: pd.DataFrame, abs: bool = True, bin_le
     max_y = max(1, max_y)  # avoid zero
 
     # Create figure and animation
-    fig, ax = plt.subplots(figsize=(9.5, 5))
+    fig, ax = plt.subplots(figsize=(9.5, 5), dpi=300)
 
     def update(i):
         offset = offsets[i]
@@ -231,7 +231,7 @@ def animate_points_by_x_perpendicular(df: pd.DataFrame, abs: bool = True, bin_le
         return html
 
 
-def plot_points_by_frame(df: pd.DataFrame, cell_ids: list = None, output_path: str = None) -> None:
+def plot_points_vs_frame(df: pd.DataFrame, cell_ids: list = None, output_path: str = None) -> None:
     """
     Plots the number of unique points over frames.
 
@@ -253,7 +253,7 @@ def plot_points_by_frame(df: pd.DataFrame, cell_ids: list = None, output_path: s
     # Drop NaNs in required columns
     df = df.dropna(subset=['frame_rel'])
 
-    plt.figure(figsize=(9.5, 5))
+    plt.figure(figsize=(9.5, 5), dpi=300)
     bins = np.arange(df['frame_rel'].min() - 0.5, df['frame_rel'].max() + 1.5, 1)
     plt.hist(df['frame_rel'], bins=bins, edgecolor='black')
     plt.xlabel('Frame (relative to cut)')
@@ -270,7 +270,7 @@ def plot_points_by_frame(df: pd.DataFrame, cell_ids: list = None, output_path: s
     return
 
 
-def plot_velocities_by_x_perpendicular(df: pd.DataFrame, abs: bool = True, frame_rel: int = None, cell_ids: list = None, output_path: str = None) -> None:
+def plot_velocities_vs_x_perpendicular(df: pd.DataFrame, abs: bool = True, frame_rel: int = None, cell_ids: list = None, output_path: str = None) -> None:
     """
     Plots the velocities of points by their x_perpendicular position at a specific frame_rel.
 
@@ -298,7 +298,7 @@ def plot_velocities_by_x_perpendicular(df: pd.DataFrame, abs: bool = True, frame
     # Drop NaNs in required columns
     df = df.dropna(subset=['x_perpendicular', 'velocity_cut'])
 
-    plt.figure(figsize=(9.5, 5))
+    plt.figure(figsize=(9.5, 5), dpi=300)
 
     if abs:
         df['x_perpendicular'] = df['x_perpendicular'].abs()
@@ -317,12 +317,12 @@ def plot_velocities_by_x_perpendicular(df: pd.DataFrame, abs: bool = True, frame
     return
 
 
-def plot_velocities_over_time(df: pd.DataFrame, cell_ids: list = None, output_path: str = None) -> None:
+def plot_velocity_cut_vs_time(df: pd.DataFrame, cell_ids: list = None, output_path: str = None) -> None:
     """
     Plots the velocities of points over time (frame_rel) as lines per point, and overlays the average velocity.
 
     Parameters:
-    df (pd.DataFrame): DataFrame containing 'frame_rel', 'velocity', and 'cell_id' columns.
+    df (pd.DataFrame): DataFrame containing 'frame_rel', 'velocity_cut', and 'cell_id' columns.
     cell_ids (list): List of cell IDs to include in the plot. If None, all cells are included.
     output_path (str): Path to save the plot. If None, the plot is shown instead.
 
@@ -339,7 +339,7 @@ def plot_velocities_over_time(df: pd.DataFrame, cell_ids: list = None, output_pa
     # Drop NaNs in required columns
     df = df.dropna(subset=['frame_rel', 'velocity_cut', 'point_id'])
 
-    plt.figure(figsize=(9.5, 5))
+    plt.figure(figsize=(9.5, 5), dpi=300)
 
     # Plot each point's velocity as a line
     for pid, group in df.groupby('point_id'):
@@ -351,7 +351,7 @@ def plot_velocities_over_time(df: pd.DataFrame, cell_ids: list = None, output_pa
 
     plt.xlabel('Frame (relative to cut)')
     plt.ylabel('Velocity (pixels/frame)')
-    plt.title('Point Velocities over Time', fontweight='bold')
+    plt.title('Point Velocities (relative to cut) over Time', fontweight='bold')
     plt.grid(True, alpha=0.3, linestyle='--')
     plt.legend()
 
@@ -362,3 +362,65 @@ def plot_velocities_over_time(df: pd.DataFrame, cell_ids: list = None, output_pa
 
     return
 
+
+import matplotlib.pyplot as plt
+import pandas as pd
+
+def plot_v_perpendicular_vs_time(
+    df: pd.DataFrame,
+    cell_ids: list = None,
+    output_path: str = None,
+    abs: bool = True
+) -> None:
+    """
+    Plots the perpendicular velocities of points over time (frame_rel) as lines per point,
+    and overlays the average perpendicular velocity.
+
+    Parameters:
+    df (pd.DataFrame): DataFrame containing 'frame_rel', 'v_perpendicular', and 'cell_id' columns.
+    cell_ids (list): List of cell IDs to include in the plot. If None, all cells are included.
+    output_path (str): Path to save the plot. If None, the plot is shown instead.
+    abs (bool): If True, compute the average of the absolute perpendicular velocities.
+
+    Returns:
+    None
+    """
+    df = df.copy()
+
+    # Filter by cell_ids if provided
+    if cell_ids is not None:
+        df = df[df['cell_id'].isin(cell_ids)]
+
+    # Drop NaNs in required columns
+    df = df.dropna(subset=['frame_rel', 'v_perpendicular', 'point_id'])
+
+    if abs:
+        df['v_perpendicular'] = df['v_perpendicular'].abs()
+
+    plt.figure(figsize=(9.5, 5), dpi=300)
+
+    # Plot each point's perpendicular velocity as a faint line
+    for pid, group in df.groupby('point_id'):
+        plt.plot(group['frame_rel'], group['v_perpendicular'], color='gray', alpha=0.05, linewidth=0.5)
+
+    # Compute average across frames
+    avg = df.groupby('frame_rel')['v_perpendicular'].mean()
+
+    # Label depends on abs setting
+    label = 'Average |v_perpendicular|' if abs else 'Average v_perpendicular'
+
+    # Plot the average velocity
+    plt.plot(avg.index, avg.values, color='blue', linewidth=2.5, label=label)
+
+    plt.xlabel('Frame (relative to cut)')
+    plt.ylabel('Perpendicular Velocity (pixels/frame)')
+    plt.title('Point Perpendicular Velocities over Time', fontweight='bold')
+    plt.grid(True, alpha=0.3, linestyle='--')
+    plt.legend()
+
+    if output_path:
+        plt.savefig(output_path, bbox_inches='tight')
+    else:
+        plt.show()
+
+    return
