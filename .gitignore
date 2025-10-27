@@ -212,3 +212,7 @@ data/
 # Pixi
 .pixi/
 data/
+
+# Files
+# Output file for perpendicular 
+perpendicular/out/
