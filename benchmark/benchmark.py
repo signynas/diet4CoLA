@@ -6,18 +6,19 @@ if __name__ == "__main__":
     import sys
     import pandas as pd
 
-    # Ensure output directory exists
-    output_path = os.path.join("benchmark", "plots")
-    os.makedirs(output_path, exist_ok=True)
-
-    # Require path to points.csv as argument
-    if len(sys.argv) != 2:
-        print(f"Usage: python {os.path.basename(sys.argv[0])} <path/to/points.csv>")
+    # Require path to points.csv and output directory as arguments
+    if len(sys.argv) != 3:
+        print(f"Usage: python {os.path.basename(sys.argv[0])} <path/to/points.csv> <output_dir>")
         sys.exit(1)
 
     data_path = sys.argv[1]
+    output_path = sys.argv[2]
+
     if not os.path.exists(data_path):
         raise FileNotFoundError(f"Expected data file not found: {data_path}")
+
+    # Ensure output directory exists
+    os.makedirs(output_path, exist_ok=True)
 
     df = pd.read_csv(data_path)
 
