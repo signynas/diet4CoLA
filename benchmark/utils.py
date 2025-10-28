@@ -29,7 +29,7 @@ def plot_points_vs_x_parallel(df: pd.DataFrame, bins: int = None, output_path: s
     first_timepoints = df.groupby('cell_id')['frame'].min().reset_index()
     df = df.merge(first_timepoints, on=['cell_id', 'frame'])
 
-    plt.figure(figsize=(9.5, 5), dpi=300)
+    plt.figure(figsize=(9.5, 5))
     plt.hist(df['x_parallel'], bins=bins, edgecolor='black')
     plt.xlabel('x_parallel (fraction of cut length)')
     plt.ylabel('Number of points')
@@ -37,7 +37,7 @@ def plot_points_vs_x_parallel(df: pd.DataFrame, bins: int = None, output_path: s
     plt.grid(True, axis='y', alpha=0.3, linestyle='--')
 
     if output_path:
-        plt.savefig(output_path)
+        plt.savefig(output_path, dpi=300)
     else:
         plt.show()
 
@@ -72,7 +72,7 @@ def plot_points_vs_x_perpendicular(df: pd.DataFrame, abs: bool = True, bins: int
     first_timepoints = df.groupby('cell_id')['frame'].min().reset_index()
     df = df.merge(first_timepoints, on=['cell_id', 'frame'])
 
-    plt.figure(figsize=(9.5, 5), dpi=300)
+    plt.figure(figsize=(9.5, 5))
 
     if abs:
         df['x_perpendicular'] = df['x_perpendicular'].abs()
@@ -85,7 +85,7 @@ def plot_points_vs_x_perpendicular(df: pd.DataFrame, abs: bool = True, bins: int
     plt.grid(True, axis='y', alpha=0.3, linestyle='--')
 
     if output_path:
-        plt.savefig(output_path)
+        plt.savefig(output_path, dpi=300)
     else:
         plt.show()
 
@@ -158,7 +158,7 @@ def animate_points_vs_x_perpendicular(df: pd.DataFrame, abs: bool = True, bin_le
     max_y = max(1, max_y)  # avoid zero
 
     # Create figure and animation
-    fig, ax = plt.subplots(figsize=(9.5, 5), dpi=300)
+    fig, ax = plt.subplots(figsize=(9.5, 5))
 
     def update(i):
         offset = offsets[i]
@@ -185,23 +185,23 @@ def animate_points_vs_x_perpendicular(df: pd.DataFrame, abs: bool = True, bin_le
 
         ax.set_ylim(0, max_y + 1)
 
-        # Add vertical red dashed lines for medians
+        # Add vertical red dashed lines for means
         if not abs:
             less = tdf[tdf['x_perpendicular'] < 0]['x_perpendicular']
             more = tdf[tdf['x_perpendicular'] > 0]['x_perpendicular']
             if not less.empty:
-                median_less = np.median(less)
-                ax.axvline(median_less, color='red', linestyle='--', linewidth=2, label='Median')
+                mean_less = np.mean(less)
+                ax.axvline(mean_less, color='red', linestyle='--', linewidth=2, label='Mean')
             if not more.empty:
-                median_more = np.median(more)
-                ax.axvline(median_more, color='red', linestyle='--', linewidth=2,)
+                mean_more = np.mean(more)
+                ax.axvline(mean_more, color='red', linestyle='--', linewidth=2,)
         else:
-            # For abs, just one median
+            # For abs, just one mean
             if not data.empty:
-                median_abs = np.median(data)
-                ax.axvline(median_abs, color='red', linestyle='--', linewidth=2, label='Median')
+                mean_abs = np.mean(data)
+                ax.axvline(mean_abs, color='red', linestyle='--', linewidth=2, label='Mean')
 
-        # Only show legend on first frame if any median lines were drawn
+        # Only show legend on first frame if any mean lines were drawn
         handles, labels = ax.get_legend_handles_labels()
         if handles:
             ax.legend()
@@ -216,19 +216,142 @@ def animate_points_vs_x_perpendicular(df: pd.DataFrame, abs: bool = True, bin_le
         ext = output_path.lower().split('.')[-1]
         if ext == 'gif':
             writer = PillowWriter(fps=fps)
-            anim.save(output_path, writer=writer)
+            anim.save(output_path, writer=writer, dpi=300)
         else:
             # Default to mp4 if not gif
             if not output_path.lower().endswith('.mp4'):
                 output_path = output_path + '.mp4'
             writer = animation.FFMpegWriter(fps=fps)
-            anim.save(output_path, writer=writer)
+            anim.save(output_path, writer=writer, dpi=300)
         plt.close(fig)
         return None
     else:
         html = HTML(anim.to_jshtml(fps=fps))
         plt.close(fig)
         return html
+
+
+def plot_points_vs_x_perpendicular_overlapping(df: pd.DataFrame, abs: bool = True, bin_length: float = 5.0, 
+                                                start_offset: int = -1, end_offset: int = None,
+                                                output_path: str = None, cell_ids: list = None,
+                                                colormap: str = 'viridis', alpha: float = 0.7):
+    """
+    Creates a static plot showing overlapping distribution lines of x_perpendicular over time offsets.
+    Adds vertical dashed mean lines:
+      - If abs=True → one mean per offset (of |x_perpendicular|)
+      - If abs=False → two means per offset (for x_perpendicular < 0 and > 0)
+    Includes a legend entry for the mean indicator.
+    """
+    import matplotlib.pyplot as plt
+    import matplotlib.cm as cm
+    import numpy as np
+    from matplotlib.colors import Normalize
+    from matplotlib.lines import Line2D
+
+    df = df.copy()
+
+    # Filter by cell_ids if provided
+    if cell_ids is not None:
+        df = df[df['cell_id'].isin(cell_ids)]
+
+    # Drop NaNs in required columns
+    df = df.dropna(subset=['x_perpendicular', 'frame_rel'])
+
+    # Exclude actual cut frames
+    if 'cut' in df.columns:
+        df = df[df['cut'] == False]
+
+    # Determine offset range
+    if end_offset is None:
+        end_offset = int(df['frame_rel'].max())
+
+    offsets = np.arange(start_offset, end_offset + 1)
+
+    # Set up bins based on abs parameter
+    if abs:
+        max_val = np.ceil(df['x_perpendicular'].abs().max()) if not df['x_perpendicular'].abs().empty else 0.0
+        bins = np.arange(0.0, max_val + bin_length, bin_length)
+    else:
+        min_val = np.floor(df['x_perpendicular'].min()) if not df['x_perpendicular'].empty else 0.0
+        max_val = np.ceil(df['x_perpendicular'].max()) if not df['x_perpendicular'].empty else 0.0
+        bins = np.arange(min_val, max_val + bin_length, bin_length)
+
+    # Set up colormap
+    cmap = cm.get_cmap(colormap)
+    norm = Normalize(vmin=start_offset, vmax=end_offset)
+
+    # Create figure
+    plt.figure(figsize=(9.5, 5))
+    bin_centers = (bins[:-1] + bins[1:]) / 2
+
+    # Plot each offset as a line + means
+    for offset in offsets:
+        tdf = df[df['frame_rel'] == offset]
+        if len(tdf) == 0:
+            continue
+
+        color = cmap(norm(offset))
+
+        if abs:
+            data = tdf['x_perpendicular'].abs()
+        else:
+            data = tdf['x_perpendicular']
+
+        counts, _ = np.histogram(data, bins=bins)
+
+        # Plot histogram line
+        plt.plot(bin_centers, counts, color=color, alpha=alpha, linewidth=1.5)
+
+        # Compute and plot mean(s)
+        if abs:
+            mean_val = np.mean(data)
+            plt.axvline(mean_val, color=color, linestyle='--', alpha=0.8, linewidth=1.0)
+        else:
+            neg_vals = data[data < 0]
+            pos_vals = data[data > 0]
+            if len(neg_vals) > 0:
+                neg_mean = np.mean(neg_vals)
+                plt.axvline(neg_mean, color=color, linestyle='--', alpha=0.8, linewidth=1.0)
+            if len(pos_vals) > 0:
+                pos_mean = np.mean(pos_vals)
+                plt.axvline(pos_mean, color=color, linestyle='--', alpha=0.8, linewidth=1.0)
+
+    # Labels and title
+    xlabel = '|x_perpendicular| (pixels)' if abs else 'x_perpendicular (pixels)'
+    title = 'Distribution of |x_perpendicular| over time' if abs else 'Distribution of x_perpendicular over time'
+    
+    plt.xlabel(xlabel, fontsize=12)
+    plt.ylabel('Number of points', fontsize=12)
+    plt.title(title, fontweight='bold', fontsize=14)
+    plt.grid(True, axis='y', alpha=0.3, linestyle='--')
+
+    # Set x-axis limits
+    if abs:
+        plt.xlim(-bin_length, bins.max())
+    else:
+        plt.xlim(bins.min() - bin_length/2, bins.max() + bin_length/2)
+
+    # Add colorbar for time progression
+    dummy_scatter = plt.scatter([], [], c=[], cmap=cmap, vmin=start_offset, vmax=end_offset)
+    cbar = plt.colorbar(dummy_scatter, label='frame_rel')
+
+    plotted_offsets = [offset for offset in offsets if len(df[df['frame_rel'] == offset]) > 0]
+    cbar.set_ticks(plotted_offsets)
+    cbar.set_ticklabels([f'{int(t)}' for t in plotted_offsets])
+
+    # Add legend showing what the dashed lines mean
+    mean_line = Line2D([0], [0], color='black', linestyle='--', linewidth=1.0, label='Mean')
+    plt.legend(handles=[mean_line], loc='upper right')
+
+    plt.tight_layout()
+
+    # Save or display
+    if output_path:
+        plt.savefig(output_path, dpi=300)
+    else:
+        plt.show()
+
+    return
 
 
 def plot_points_vs_frame(df: pd.DataFrame, cell_ids: list = None, output_path: str = None) -> None:
@@ -253,7 +376,7 @@ def plot_points_vs_frame(df: pd.DataFrame, cell_ids: list = None, output_path: s
     # Drop NaNs in required columns
     df = df.dropna(subset=['frame_rel'])
 
-    plt.figure(figsize=(9.5, 5), dpi=300)
+    plt.figure(figsize=(9.5, 5))
     bins = np.arange(df['frame_rel'].min() - 0.5, df['frame_rel'].max() + 1.5, 1)
     plt.hist(df['frame_rel'], bins=bins, edgecolor='black')
     plt.xlabel('Frame (relative to cut)')
@@ -263,7 +386,7 @@ def plot_points_vs_frame(df: pd.DataFrame, cell_ids: list = None, output_path: s
     plt.xticks(np.arange(df['frame_rel'].min(), df['frame_rel'].max() + 1, 1))
 
     if output_path:
-        plt.savefig(output_path)
+        plt.savefig(output_path, dpi=300)
     else:
         plt.show()
 
@@ -298,7 +421,7 @@ def plot_velocities_vs_x_perpendicular(df: pd.DataFrame, abs: bool = True, frame
     # Drop NaNs in required columns
     df = df.dropna(subset=['x_perpendicular', 'velocity_cut'])
 
-    plt.figure(figsize=(9.5, 5), dpi=300)
+    plt.figure(figsize=(9.5, 5))
 
     if abs:
         df['x_perpendicular'] = df['x_perpendicular'].abs()
@@ -310,7 +433,7 @@ def plot_velocities_vs_x_perpendicular(df: pd.DataFrame, abs: bool = True, frame
     plt.grid(True, alpha=0.3, linestyle='--')
 
     if output_path:
-        plt.savefig(output_path)
+        plt.savefig(output_path, dpi=300)
     else:
         plt.show()
 
@@ -339,7 +462,7 @@ def plot_velocity_cut_vs_time(df: pd.DataFrame, cell_ids: list = None, output_pa
     # Drop NaNs in required columns
     df = df.dropna(subset=['frame_rel', 'velocity_cut', 'point_id'])
 
-    plt.figure(figsize=(9.5, 5), dpi=300)
+    plt.figure(figsize=(9.5, 5))
 
     # Plot each point's velocity as a line
     for pid, group in df.groupby('point_id'):
@@ -356,7 +479,7 @@ def plot_velocity_cut_vs_time(df: pd.DataFrame, cell_ids: list = None, output_pa
     plt.legend()
 
     if output_path:
-        plt.savefig(output_path)
+        plt.savefig(output_path, dpi=300)
     else:
         plt.show()
 
@@ -397,7 +520,7 @@ def plot_v_perpendicular_vs_time(
     if abs:
         df['v_perpendicular'] = df['v_perpendicular'].abs()
 
-    plt.figure(figsize=(9.5, 5), dpi=300)
+    plt.figure(figsize=(9.5, 5))
 
     # Plot each point's perpendicular velocity as a faint line
     for pid, group in df.groupby('point_id'):
@@ -419,7 +542,7 @@ def plot_v_perpendicular_vs_time(
     plt.legend()
 
     if output_path:
-        plt.savefig(output_path, bbox_inches='tight')
+        plt.savefig(output_path, dpi=300)
     else:
         plt.show()
 
