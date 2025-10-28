@@ -58,6 +58,12 @@ if __name__ == "__main__":
     # Plot 9: Perpendicular velocities over time, signed value
     utils.plot_v_perpendicular_vs_time(df, abs=False, output_path=os.path.join(output_path, "v_perpendicular_over_time_signed.png"))
 
+    # Plot 10: Points by x_perpendicular overlapping
+    utils.plot_points_vs_x_perpendicular_overlapping(df, abs=False, colormap='Blues_r', bin_length=5, output_path=os.path.join(output_path, "points_by_x_perpendicular_overlapping.png"))
+
+    # Plot 11: Points by |x_perpendicular| overlapping
+    utils.plot_points_vs_x_perpendicular_overlapping(df, abs=True, colormap='Blues_r', bin_length=5, output_path=os.path.join(output_path, "points_by_abs_x_perpendicular_overlapping.png"))
+
     # Animations
     utils.animate_points_vs_x_perpendicular(df, abs=False, fps=3, output_path=os.path.join(output_path, "animation_points_by_x_perpendicular.mp4"))
     utils.animate_points_vs_x_perpendicular(df, abs=True, fps=3, output_path=os.path.join(output_path, "animation_points_by_abs_x_perpendicular.mp4"))
