@@ -71,6 +71,14 @@ def sdf_vesica(P: np.ndarray,
     
     return norm(Q - H[:2]) - H[2]
 
+def round(P: np.ndarray,
+          A: np.ndarray,
+          B: np.ndarray,
+          w: float,
+          r: float,
+          sdf: Callable) -> float:
+    return sdf(P, A, B, w) - r
+
 def compute_sdf(width: int,
                 height: int,
                 origin: tuple[int, int],
@@ -85,5 +93,23 @@ def compute_sdf(width: int,
         for x in range(width):
             P = np.array([x, y])
             data[y, x] = sdf(P, A, B, parameter)
+
+    return data
+
+def compute_rounded_sdf(width: int,
+                height: int,
+                origin: tuple[int, int],
+                destination: tuple[int, int],
+                parameter: float,
+                r: float,
+                sdf: Callable) -> np.ndarray:
+    A       = np.array([origin[0], origin[1]])
+    B       = np.array([destination[0], destination[1]])
+    data    = np.zeros([height, width])
+    
+    for y in range(height):
+        for x in range(width):
+            P = np.array([x, y])
+            data[y, x] = round(P, A, B, parameter, r, sdf)
 
     return data
