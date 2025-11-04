@@ -69,30 +69,3 @@ def sdf_vesica(P: np.ndarray,
         H = array([-d, 0.0, d + w])
     
     return norm(Q - H[:2]) - H[2]
-
-def sdf_ellipse(P: np.ndarray,
-                A: np.ndarray, 
-                B: np.ndarray, 
-                w: float) -> float:
-    # Center of ellipse
-    C = 0.5 * (A + B)
-    # Major axis vector and length
-    AB = B - A
-    L = np.linalg.norm(AB) * 0.5  # half-length of major axis
-    if L == 0:
-        return np.linalg.norm(P - C) - w  # degenerate case: circle
-
-    # Normalize major axis
-    u = AB / (2 * L)
-    # Construct rotation matrix to ellipse frame
-    rot = np.array([[u[0], u[1]], [-u[1], u[0]]])
-
-    # Rotate point into ellipse frame (centered)
-    p_local = P - C
-    p_rot = rot.T @ p_local  # do NOT use abs; keep smooth coordinates
-
-    # Ellipse SDF (approximation using simple formula)
-    x = p_rot[0] / L
-    y = p_rot[1] / w
-    length_xy = np.sqrt(x**2 + y**2)
-    return length_xy - 1.0  # normalized distance; 0 at ellipse boundary
