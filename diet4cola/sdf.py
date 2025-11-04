@@ -2,6 +2,7 @@ import numpy as np
 
 from numpy import array, clip, dot, stack
 from numpy.linalg import norm
+from typing import Callable
 
 def sdf_segment(P: np.ndarray,
                 A: np.ndarray,
@@ -69,3 +70,20 @@ def sdf_vesica(P: np.ndarray,
         H = array([-d, 0.0, d + w])
     
     return norm(Q - H[:2]) - H[2]
+
+def compute_sdf(width: int,
+                height: int,
+                origin: tuple[int, int],
+                destination: tuple[int, int],
+                parameter: float,
+                sdf: Callable) -> np.ndarray:
+    A       = np.array([origin[0], origin[1]])
+    B       = np.array([destination[0], destination[1]])
+    data    = np.zeros([height, width])
+    
+    for y in range(height):
+        for x in range(width):
+            P = np.array([x, y])
+            data[y, x] = sdf(P, A, B, parameter)
+
+    return data
