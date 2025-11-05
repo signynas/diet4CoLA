@@ -1,7 +1,19 @@
 import matplotlib.pyplot as plt
 import numpy as np
 
+from matplotlib.animation import FuncAnimation
 from mpl_toolkits.axes_grid1 import make_axes_locatable
+
+def plot_curve(data: np.array,
+               title: str = 'Curve'):
+    fig, ax = plt.subplots(figsize=(4, 2))
+    ax.plot(data, color='blue', linewidth=2, label=f'{title}', zorder=1)
+    ax.set_title(f'{title}')
+
+    # Optional: add legend
+    ax.legend(loc='upper right', fontsize=8)
+    
+    plt.show()
 
 def plot_2d_array(data: np.ndarray, 
                   title: str = 'Noise',
@@ -156,6 +168,52 @@ def plot_velocity_field(velocity: np.ndarray,
     # Adjust layout and save figure
     plt.tight_layout()
     plt.show()
+
+def animate_2d_data(data: np.ndarray, 
+                    origin: tuple[int, int],
+                    destination: tuple[int, int],
+                    interval: int = 200, 
+                    cmap: str = 'viridis',
+                    title: str = 'Animation') -> FuncAnimation:
+    # Check input
+    if not isinstance(data, np.ndarray):
+        raise TypeError("data must be a 3D NumPy array")
+    if data.ndim != 3:
+        raise ValueError(f"data must be 3D, got {data.ndim}D")
+    if data.size == 0:
+        raise ValueError("data cannot be empty")
+    
+    num_frames = data.shape[0]
+
+    # Global min and max for consistent color scaling
+    vmin, vmax = data.min(), data.max()
+    
+    fig, ax = plt.subplots()
+    img = ax.imshow(data[0], cmap=cmap, vmin=vmin, vmax=vmax)
+    ax.axis('off')  
+    ax.set_title(f'{title}')
+
+    # Plot the origin–destination line in green
+    ax.plot(
+        [origin[0], destination[0]], 
+        [origin[1], destination[1]], 
+        color='green', linewidth=2, label='CoLA Cut', zorder=1
+    )
+
+    # Plot origin and destination points in red
+    ax.scatter(*origin, color='red', s=20, zorder=2)
+    ax.scatter(*destination, color='red', s=20, zorder=2)
+
+    # Add colorbar
+    cbar = fig.colorbar(img, ax=ax)
+
+    def update(frame):
+        img.set_data(data[frame])
+        return [img]
+
+    anim = FuncAnimation(fig, update, frames=num_frames, interval=interval, blit=True)
+    plt.close(anim._fig)
+    return anim
 
 def save_cortex(data: np.ndarray, filename: str) -> None:
     if not isinstance(data, np.ndarray):

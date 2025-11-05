@@ -2,6 +2,7 @@ import numpy as np
 
 from numpy import array, clip, dot, stack
 from numpy.linalg import norm
+from tqdm import tqdm
 from typing import Callable
 
 def sdf_segment(P: np.ndarray,
@@ -84,6 +85,7 @@ def compute_sdf(width: int,
                 origin: tuple[int, int],
                 destination: tuple[int, int],
                 parameter: float,
+                clip_zero: bool,
                 sdf: Callable) -> np.ndarray:
     A       = np.array([origin[0], origin[1]])
     B       = np.array([destination[0], destination[1]])
@@ -93,16 +95,33 @@ def compute_sdf(width: int,
         for x in range(width):
             P = np.array([x, y])
             data[y, x] = sdf(P, A, B, parameter)
-
+    if clip_zero:
+        data = np.where(data < 0, 0, data)
     return data
 
+def compute_sdf_multi(width: int,
+                      height: int,
+                      origin: tuple[int, int],
+                      destination: tuple[int, int],
+                      parameters: np.array,
+                      clip_zero: bool,
+                      sdf: Callable, 
+                      count: int) -> np.ndarray:
+    if count != len(parameters):
+        raise ValueError(f'Expected {count} paramteres but got {len(parameters)}')
+    sdfs = []
+    for i in tqdm(range(count)): 
+        sdfs.append(compute_sdf(width, height, origin, destination, parameters[i], clip_zero, sdf))
+    return np.array(sdfs)
+
 def compute_rounded_sdf(width: int,
-                height: int,
-                origin: tuple[int, int],
-                destination: tuple[int, int],
-                parameter: float,
-                r: float,
-                sdf: Callable) -> np.ndarray:
+                        height: int,
+                        origin: tuple[int, int],
+                        destination: tuple[int, int],
+                        parameter: float,
+                        radius: float,
+                        clip_zero: bool,
+                        sdf: Callable) -> np.ndarray:
     A       = np.array([origin[0], origin[1]])
     B       = np.array([destination[0], destination[1]])
     data    = np.zeros([height, width])
@@ -110,6 +129,25 @@ def compute_rounded_sdf(width: int,
     for y in range(height):
         for x in range(width):
             P = np.array([x, y])
-            data[y, x] = round(P, A, B, parameter, r, sdf)
-
+            data[y, x] = round(P, A, B, parameter, radius, sdf)
+    if clip_zero:
+        data = np.where(data < 0, 0, data)
     return data
+
+def compute_rounded_sdf_multi(width: int,
+                              height: int,
+                              origin: tuple[int, int],
+                              destination: tuple[int, int],
+                              parameters: np.array,
+                              radii: np.array,
+                              clip_zero: bool,
+                              sdf: Callable, 
+                              count: int) -> np.ndarray:
+    if count != len(parameters):
+        raise ValueError(f'Expected {count} paramteres but got {len(parameters)}')
+    if count != len(radii):
+        raise ValueError(f'Expected {count} radii but got {len(radii)}')
+    sdfs = []
+    for i in tqdm(range(count)): 
+        sdfs.append(compute_rounded_sdf(width, height, origin, destination, parameters[i], radii[i], clip_zero, sdf))
+    return np.array(sdfs)
