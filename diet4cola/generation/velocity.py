@@ -4,7 +4,6 @@ from tqdm import tqdm
 from typing import Callable
 
 def prior_exponential(t: float, v_0: float = 1.0, k: float = 1.0, d: float = 1.0) -> float:
-    t = t + 1e-8
     return v_0 * np.exp(-(t * d) / k)
 
 def prior_linear(t: float, v_0: float = 1.0, k: float = 1.0, d: float = 1.0) -> float:

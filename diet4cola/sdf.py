@@ -5,6 +5,8 @@ from numpy.linalg import norm
 from tqdm import tqdm
 from typing import Callable
 
+from concurrent.futures import ProcessPoolExecutor
+
 def sdf_segment(P: np.ndarray,
                 A: np.ndarray,
                 B: np.ndarray,
@@ -134,6 +136,12 @@ def compute_rounded_sdf(width: int,
         data = np.where(data < 0, 0, data)
     return data
 
+# --- top-level helper (must be outside the main function!) ---
+def _compute_rounded_sdf_task(args):
+    width, height, origin, destination, parameters_i, radius_i, clip_zero, sdf = args
+    return compute_rounded_sdf(width, height, origin, destination,
+                               parameters_i, radius_i, clip_zero, sdf)
+
 def compute_rounded_sdf_multi(width: int,
                               height: int,
                               origin: tuple[int, int],
@@ -147,7 +155,20 @@ def compute_rounded_sdf_multi(width: int,
         raise ValueError(f'Expected {count} paramteres but got {len(parameters)}')
     if count != len(radii):
         raise ValueError(f'Expected {count} radii but got {len(radii)}')
+
+    # prepare arguments for each process
+    task_args = [
+        (width, height, origin, destination, parameters[i], radii[i], clip_zero, sdf)
+        for i in range(count)
+    ]
+
+    with ProcessPoolExecutor(max_workers=20) as executor:
+        sdfs = list(executor.map(_compute_rounded_sdf_task, task_args))
+
+    '''
     sdfs = []
     for i in tqdm(range(count)): 
         sdfs.append(compute_rounded_sdf(width, height, origin, destination, parameters[i], radii[i], clip_zero, sdf))
+    '''
+    
     return np.array(sdfs)

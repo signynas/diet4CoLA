@@ -53,3 +53,8 @@ def cut_mask(width: int,
              extent: tuple[int, int],
              angle: float) -> np.ndarray:
     return ellipse(width, height, offset, extent, angle)
+
+def mask_on_condition(condition: np.ndarray,
+                      true_value: float,
+                      false_value: float) -> np.ndarray:
+    return np.where(condition, true_value, false_value)

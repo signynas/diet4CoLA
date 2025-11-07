@@ -4,6 +4,12 @@ import numpy as np
 def normalize(data: np.ndarray) -> np.ndarray:
     return (data - data.min()) / (data.max() - data.min())
 
+def normalize_in(data: np.ndarray, min: float, max: float) -> np.ndarray:
+    return (data - min) / (max - min)
+
+def clip(data: np.ndarray, min: float, max: float) -> np.ndarray:
+    return np.clip(data, min, max)
+
 def invert(data: np.ndarray) -> np.ndarray:
     return 1 - data
 
@@ -27,7 +33,7 @@ def blur(data: np.ndarray, kernel: tuple[int, int], sigma: float = 1.0) -> np.nd
 
 def canny(data: np.ndarray, t1: float, t2: float):
     img_8bit = (data * 255).astype(np.uint8)
-    edges = cv2.Canny(img_8bit, 100, 200) / 255
+    edges = cv2.Canny(img_8bit, t1, t2) / 255
 
     return edges
 
