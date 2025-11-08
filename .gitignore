@@ -216,3 +216,6 @@ data/
 # Files
 # Output file for perpendicular 
 perpendicular/out/
+
+notebook/video/
+notebook/paper_figures.ipynb

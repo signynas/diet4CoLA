@@ -1,6 +1,6 @@
 import numpy as np
 
-from diet4cola.generation.operations import blur
+from diet4cola.operations import blur
 
 def ellipse(width: int,
             height: int,

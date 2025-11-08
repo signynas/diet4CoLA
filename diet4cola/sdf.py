@@ -1,11 +1,10 @@
 import numpy as np
 
+from concurrent.futures import ProcessPoolExecutor
 from numpy import array, clip, dot, stack
 from numpy.linalg import norm
 from tqdm import tqdm
 from typing import Callable
-
-from concurrent.futures import ProcessPoolExecutor
 
 def sdf_segment(P: np.ndarray,
                 A: np.ndarray,
@@ -136,7 +135,7 @@ def compute_rounded_sdf(width: int,
         data = np.where(data < 0, 0, data)
     return data
 
-# --- top-level helper (must be outside the main function!) ---
+# --- top-level helper ---
 def _compute_rounded_sdf_task(args):
     width, height, origin, destination, parameters_i, radius_i, clip_zero, sdf = args
     return compute_rounded_sdf(width, height, origin, destination,
@@ -165,10 +164,4 @@ def compute_rounded_sdf_multi(width: int,
     with ProcessPoolExecutor(max_workers=20) as executor:
         sdfs = list(executor.map(_compute_rounded_sdf_task, task_args))
 
-    '''
-    sdfs = []
-    for i in tqdm(range(count)): 
-        sdfs.append(compute_rounded_sdf(width, height, origin, destination, parameters[i], radii[i], clip_zero, sdf))
-    '''
-    
     return np.array(sdfs)

@@ -1,6 +1,6 @@
 import numpy as np
 
-from diet4cola.generation.operations import *
+from diet4cola.operations import *
 from opensimplex import OpenSimplex
 
 def get_snoise_generator(seed: int = 42):

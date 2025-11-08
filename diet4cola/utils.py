@@ -349,6 +349,14 @@ def animate_gradient_field(dx: np.ndarray,
     plt.close(fig)
     return anim
 
+def save_2d_array(data: np.ndarray, filename: str, cmap: str = 'gray') -> None:
+    plt.imshow(data, cmap=cmap, aspect='equal', interpolation='nearest')
+    plt.axis('off')
+    plt.margins(0)
+    plt.gca().set_position([0, 0, 1, 1])  # fill entire figure
+    plt.savefig(filename, bbox_inches='tight', pad_inches=0)
+    plt.close()
+
 def save_cortex(data: np.ndarray, filename: str) -> None:
     if not isinstance(data, np.ndarray):
         raise TypeError("Input must be a NumPy ndarray.")
