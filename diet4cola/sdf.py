@@ -141,15 +141,15 @@ def _compute_rounded_sdf_task(args):
     return compute_rounded_sdf(width, height, origin, destination,
                                parameters_i, radius_i, clip_zero, sdf)
 
-def compute_rounded_sdf_multi(width: int,
-                              height: int,
-                              origin: tuple[int, int],
-                              destination: tuple[int, int],
-                              parameters: np.array,
-                              radii: np.array,
-                              clip_zero: bool,
-                              sdf: Callable, 
-                              count: int) -> np.ndarray:
+def compute_rounded_sdfs(width: int,
+                        height: int,
+                        origin: tuple[int, int],
+                        destination: tuple[int, int],
+                        parameters: np.array,
+                        radii: np.array,
+                        clip_zero: bool,
+                        sdf: Callable, 
+                        count: int) -> np.ndarray:
     if count != len(parameters):
         raise ValueError(f'Expected {count} paramteres but got {len(parameters)}')
     if count != len(radii):

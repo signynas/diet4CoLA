@@ -40,6 +40,22 @@ def canny(data: np.ndarray, t1: float, t2: float):
 def gradient(data: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
     return np.gradient(data)
 
+def directional_gradient(data: np.ndarray) -> tuple[np.ndarray, np.ndarray, float, np.ndarray]:
+    # f is a 2D numpy array
+    fx = np.zeros_like(data)
+    fy = np.zeros_like(data)
+
+    fx[1:-1, :] = (data[2:, :] - data[:-2, :]) / 2.0
+    fy[:, 1:-1] = (data[:, 2:] - data[:, :-2]) / 2.0
+
+    magnitude = np.sqrt(fx ** 2 + fy ** 2)
+    direction = np.arctan2(fy, fx)  # angle in radians
+    return fx, fy, magnitude, direction
+
+def directional_gradients(datas: np.ndarray) -> np.ndarray:
+    gradients = np.array([directional_gradient(data) for data in datas])
+    return gradients[:, :2, :, :]
+
 def rotate(data: np.ndarray, angle: int) -> np.ndarray:
     if data.ndim != 2:
         raise ValueError("Input must be a 2D array.")

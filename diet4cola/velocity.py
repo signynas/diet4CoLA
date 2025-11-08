@@ -29,12 +29,12 @@ def compute_velocity_field(sdf: np.ndarray,
             data[y, x] = velocity_prior(t, v_0, k, sdf[y, x])
     return data
 
-def compute_velocity_field_multi(sdfs: np.ndarray,
-                                 velocity_prior: Callable, 
-                                 timepoints: np.array, 
-                                 initial_velocities: np.array, 
-                                 parameters: np.array,
-                                 count: int,) -> np.ndarray:
+def compute_velocity_fields(sdfs: np.ndarray,
+                            velocity_prior: Callable, 
+                            timepoints: np.array, 
+                            initial_velocities: np.array, 
+                            parameters: np.array,
+                            count: int,) -> np.ndarray:
     if count != len(sdfs):
         raise ValueError(f'Expected {count} SDFs but got {sdfs.shape[0]}')
     if count != len(timepoints):
