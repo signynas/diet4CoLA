@@ -2,6 +2,8 @@ import numpy as np
 
 from diet4cola.operations import *
 from opensimplex import OpenSimplex
+from scipy.ndimage import gaussian_filter
+from scipy.spatial import cKDTree
 
 def get_snoise_generator(seed: int = 42):
     return OpenSimplex(seed)
@@ -73,9 +75,32 @@ def worley_noise(width: int,
                  seed: int = 42) -> np.ndarray:
     np.random.seed(seed)
     points = np.random.rand(num_points, 2) * [width, height]
+
+    # Query grid coordinates in batches
     y, x = np.mgrid[0:height, 0:width]
     coords = np.dstack((x, y))
+
+    # Query nearest distance for each pixel (slow)
     dist = np.min(np.sqrt(((coords[:, :, None, :] - points) ** 2).sum(axis=3)), axis=2)
+    return dist / dist.max()
+
+def worley_noise_kd(width: int,
+                      height: int,
+                      num_points: int,
+                      seed: int = 42) -> np.ndarray:
+    np.random.seed(seed)
+    points = np.random.rand(num_points, 2) * [width, height]
+
+    # Build KDTree (O(N log N))
+    tree = cKDTree(points)
+
+    # Query grid coordinates in batches
+    y, x = np.mgrid[0:height, 0:width]
+    coords = np.column_stack((x.ravel(), y.ravel()))
+
+    # Query nearest distance for each pixel (fast!)
+    dist, _ = tree.query(coords, k=1)
+    dist = dist.reshape((height, width))
     return dist / dist.max()
 
 def spot_noise(width: int,
@@ -108,16 +133,48 @@ def spot_noise(width: int,
 
     return normalize(data)
 
+def spot_noise_convolved(width: int,
+                         height: int,
+                         num_points: int,
+                         sigma: float = 1.0,
+                         amplitude: float = 1.0,
+                         seed: int = 42) -> np.ndarray:
+    rng = np.random.default_rng(seed)
+
+    # Initialize empty impulse map
+    data = np.zeros((height, width), dtype=np.float32)
+
+    # Random spot positions
+    xs = rng.integers(0, width, size=num_points)
+    ys = rng.integers(0, height, size=num_points)
+
+    # Random amplitudes for variation
+    amps = amplitude * (0.5 + rng.random(num_points))
+
+    # Place impulses
+    for x, y, a in zip(xs, ys, amps):
+        data[y, x] += a
+
+    # Convolve impulses with Gaussian to get smooth blobs
+    blurred = gaussian_filter(data, sigma=sigma, mode='wrap')
+
+    # Normalize
+    blurred -= blurred.min()
+    blurred /= blurred.max() + 1e-8
+
+    return blurred
+
+
 def myosin_noise(width: int,
                  height: int, 
-                 spot_scale: float = 0.005,
+                 spot_scale: float = 2.75,
                  scale: float = 0.02, 
                  iterations: int = 10,
                  seed: int = 42) -> np.ndarray:
     data = np.zeros([width, height])
     for i in range(iterations):
         seed_i = seed + i
-        mask_i_0    = spot_noise(width, height, num_points=100, sigma=spot_scale, amplitude=1, seed=seed_i)
+        mask_i_0    = spot_noise_convolved(width, height, num_points=100, sigma=spot_scale, amplitude=1, seed=seed_i)
         mask_i_90   = rotate(mask_i_0, 90)
         mask_i_180  = rotate(mask_i_0, 180)
         mask_i_270  = rotate(mask_i_0, 270)
@@ -138,7 +195,7 @@ def actin_noise(width: int,
                 myosin_offset: float = -0.05,
                 seed: int = 42) -> np.ndarray:
     # Worley mask
-    worley_mask     = worley_noise(width, height, num_points, seed)
+    worley_mask     = worley_noise_kd(width, height, num_points, seed)
     worley_mask     = power(worley_mask, 2)
     worley_mask     = sigmoid(worley_mask, 5, 0.25)
     worley_mask     = normalize(worley_mask)
