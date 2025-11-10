@@ -1,7 +1,10 @@
 import numpy as np
 
+from concurrent.futures import ProcessPoolExecutor
 from numpy import array, clip, dot, stack
 from numpy.linalg import norm
+from tqdm import tqdm
+from typing import Callable
 
 def sdf_segment(P: np.ndarray,
                 A: np.ndarray,
@@ -69,3 +72,96 @@ def sdf_vesica(P: np.ndarray,
         H = array([-d, 0.0, d + w])
     
     return norm(Q - H[:2]) - H[2]
+
+def round(P: np.ndarray,
+          A: np.ndarray,
+          B: np.ndarray,
+          w: float,
+          r: float,
+          sdf: Callable) -> float:
+    return sdf(P, A, B, w) - r
+
+def compute_sdf(width: int,
+                height: int,
+                origin: tuple[int, int],
+                destination: tuple[int, int],
+                parameter: float,
+                clip_zero: bool,
+                sdf: Callable) -> np.ndarray:
+    A       = np.array([origin[0], origin[1]])
+    B       = np.array([destination[0], destination[1]])
+    data    = np.zeros([height, width])
+    
+    for y in range(height):
+        for x in range(width):
+            P = np.array([x, y])
+            data[y, x] = sdf(P, A, B, parameter)
+    if clip_zero:
+        data = np.where(data < 0, 0, data)
+    return data
+
+def compute_sdf_multi(width: int,
+                      height: int,
+                      origin: tuple[int, int],
+                      destination: tuple[int, int],
+                      parameters: np.array,
+                      clip_zero: bool,
+                      sdf: Callable, 
+                      count: int) -> np.ndarray:
+    if count != len(parameters):
+        raise ValueError(f'Expected {count} paramteres but got {len(parameters)}')
+    sdfs = []
+    for i in tqdm(range(count)): 
+        sdfs.append(compute_sdf(width, height, origin, destination, parameters[i], clip_zero, sdf))
+    return np.array(sdfs)
+
+def compute_rounded_sdf(width: int,
+                        height: int,
+                        origin: tuple[int, int],
+                        destination: tuple[int, int],
+                        parameter: float,
+                        radius: float,
+                        clip_zero: bool,
+                        sdf: Callable) -> np.ndarray:
+    A       = np.array([origin[0], origin[1]])
+    B       = np.array([destination[0], destination[1]])
+    data    = np.zeros([height, width])
+    
+    for y in range(height):
+        for x in range(width):
+            P = np.array([x, y])
+            data[y, x] = round(P, A, B, parameter, radius, sdf)
+    if clip_zero:
+        data = np.where(data < 0, 0, data)
+    return data
+
+# --- top-level helper ---
+def _compute_rounded_sdf_task(args):
+    width, height, origin, destination, parameters_i, radius_i, clip_zero, sdf = args
+    return compute_rounded_sdf(width, height, origin, destination,
+                               parameters_i, radius_i, clip_zero, sdf)
+
+def compute_rounded_sdfs(width: int,
+                        height: int,
+                        origin: tuple[int, int],
+                        destination: tuple[int, int],
+                        parameters: np.array,
+                        radii: np.array,
+                        clip_zero: bool,
+                        sdf: Callable, 
+                        count: int) -> np.ndarray:
+    if count != len(parameters):
+        raise ValueError(f'Expected {count} paramteres but got {len(parameters)}')
+    if count != len(radii):
+        raise ValueError(f'Expected {count} radii but got {len(radii)}')
+
+    # prepare arguments for each process
+    task_args = [
+        (width, height, origin, destination, parameters[i], radii[i], clip_zero, sdf)
+        for i in range(count)
+    ]
+
+    with ProcessPoolExecutor(max_workers=20) as executor:
+        sdfs = list(executor.map(_compute_rounded_sdf_task, task_args))
+
+    return np.array(sdfs)

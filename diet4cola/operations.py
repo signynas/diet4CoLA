@@ -4,6 +4,12 @@ import numpy as np
 def normalize(data: np.ndarray) -> np.ndarray:
     return (data - data.min()) / (data.max() - data.min())
 
+def normalize_in(data: np.ndarray, min: float, max: float) -> np.ndarray:
+    return (data - min) / (max - min)
+
+def clip(data: np.ndarray, min: float, max: float) -> np.ndarray:
+    return np.clip(data, min, max)
+
 def invert(data: np.ndarray) -> np.ndarray:
     return 1 - data
 
@@ -27,12 +33,28 @@ def blur(data: np.ndarray, kernel: tuple[int, int], sigma: float = 1.0) -> np.nd
 
 def canny(data: np.ndarray, t1: float, t2: float):
     img_8bit = (data * 255).astype(np.uint8)
-    edges = cv2.Canny(img_8bit, 100, 200) / 255
+    edges = cv2.Canny(img_8bit, t1, t2) / 255
 
     return edges
 
 def gradient(data: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
     return np.gradient(data)
+
+def directional_gradient(data: np.ndarray) -> tuple[np.ndarray, np.ndarray, float, np.ndarray]:
+    # f is a 2D numpy array
+    fx = np.zeros_like(data)
+    fy = np.zeros_like(data)
+
+    fx[1:-1, :] = (data[2:, :] - data[:-2, :]) / 2.0
+    fy[:, 1:-1] = (data[:, 2:] - data[:, :-2]) / 2.0
+
+    magnitude = np.sqrt(fx ** 2 + fy ** 2)
+    direction = np.arctan2(fy, fx)  # angle in radians
+    return fx, fy, magnitude, direction
+
+def directional_gradients(datas: np.ndarray) -> np.ndarray:
+    gradients = np.array([directional_gradient(data) for data in datas])
+    return gradients[:, :2, :, :]
 
 def rotate(data: np.ndarray, angle: int) -> np.ndarray:
     if data.ndim != 2:
