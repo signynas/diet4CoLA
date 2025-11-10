@@ -1,0 +1,61 @@
+import numpy as np
+import tifffile
+import matplotlib.pyplot as plt
+import os
+
+# --- Configuration (Match parameters used during generation) ---
+# Assuming 'my_ablation_project' was used with the default cell index (0000)
+DATASET_NAME = 'my_ablation_project' 
+FILE_NAME = 'cell_0000'
+DATA_DIR = os.path.join("data", DATASET_NAME)
+BASE_PATH = os.path.join(DATA_DIR, FILE_NAME)
+
+# --- 1. Load and Visualize the TIF Image Files ---
+
+# Load the final image (with cut)
+image_path = f"{BASE_PATH}_image.tif"
+final_image = tifffile.imread(image_path) 
+# Note: tifffile.imread() reads the file. The image is likely 8-bit (0-255).
+
+# Load the cut mask (ground truth for the cut location)
+cut_mask_path = f"{BASE_PATH}_cut_mask.tif"
+cut_mask = tifffile.imread(cut_mask_path)
+
+mask_path = f"{BASE_PATH}_mask.tif"
+mask = tifffile.imread(mask_path)
+
+# --- Visualization ---
+fig, axes = plt.subplots(1, 3, figsize=(10, 5))
+
+# Plot the final cell image
+axes[0].imshow(final_image, cmap='gray')
+axes[0].set_title(f'Final Cell Image ({FILE_NAME})')
+axes[0].axis('off')
+
+# Plot the cut mask (often visualized in a different color map for clarity)
+axes[1].imshow(cut_mask, cmap='viridis')
+axes[1].set_title('Cut Mask (Ground Truth)')
+axes[1].axis('off')
+
+axes[2].imshow(mask, cmap='bone')
+axes[2].set_title('Mask (Ground Truth)')
+axes[2].axis('off')
+
+plt.tight_layout()
+plt.show()
+
+# --- 2. Load the Parameters (Ground Truth) ---
+
+params_path = f"{BASE_PATH}_params.npy"
+# np.load() reads the .npy file, .item() converts the NumPy array back to a dict
+params = np.load(params_path, allow_pickle=True).item() 
+
+print("\n--- Loaded Ground Truth Parameters ---")
+for key, value in params.items():
+    # Print start and end points for manual tracking validation
+    if key in ["cut_origin", "cut_destination"]:
+        print(f"- {key}: ({value[0]:.2f}, {value[1]:.2f})")
+    elif key == "cut_length":
+        print(f"- {key}: {value:.2f} pixels")
+    else:
+        print(f"- {key}: {value}")
