@@ -1,0 +1,2 @@
+cortex_id,seed,extent_major,extent_minor,angle,radius,cut_center_x,cut_center_y,cut_origin_x,cut_origin_y,cut_destination_x,cut_destination_y,sdf_radius,vel_parameter,t_max
+0,65214438,166.85408977767756,287.3255746148076,174.42108224917513,52,247,268,225.0027650471382,303.77878777192706,268.9972349528618,232.22121222807294,10,20,20.0
