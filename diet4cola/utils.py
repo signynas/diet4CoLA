@@ -357,16 +357,11 @@ def save_2d_array(data: np.ndarray, filename: str, cmap: str = 'gray') -> None:
     plt.savefig(filename, bbox_inches='tight', pad_inches=0)
     plt.close()
 
-def save_cortex(data: np.ndarray, filename: str) -> None:
+def save_array(data: np.ndarray, filename: str) -> None:
     if not isinstance(data, np.ndarray):
         raise TypeError("Input must be a NumPy ndarray.")
-    if data.ndim != 2:
-        raise ValueError("Array must be 2D.")
     np.save(filename, data)
 
-def load_cortex(filename: str) -> np.ndarray:
+def load_array(filename: str) -> np.ndarray:
     data = np.load(filename, allow_pickle=False)
-    
-    if data.ndim != 2:
-        raise ValueError("Loaded data is not a 2D array.")
     return data

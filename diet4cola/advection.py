@@ -1,7 +1,5 @@
 import numpy as np
 
-from tqdm import tqdm
-
 def interp_bilinear(data: np.ndarray,
                     x: float, 
                     y: float) -> float:
@@ -62,7 +60,7 @@ def advect_backward_sim(data: np.ndarray,
         raise ValueError(f'dX, dY and magnitude must be 3D, got {dx.ndim}D, {dy.ndim}D and {magnitude.ndim}D')
 
     advected = [data]
-    for i in tqdm(range(iterations - 1)):
+    for i in range(iterations - 1):
         advected_i = advect_backward(advected[i], dx[i], dy[i], magnitude[i], step)
         advected.append(advected_i)
     return np.array(advected)

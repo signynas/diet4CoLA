@@ -42,6 +42,37 @@ def sdf_box(P: np.ndarray,
 
     return dist_out + inside
 
+def sdf_box_vectorized(P: np.ndarray,
+                       A: np.ndarray,
+                       B: np.ndarray,
+                       t: float) -> np.ndarray:
+    half_th = t / 2.0
+
+    BA = B - A
+    length = np.linalg.norm(BA)
+    dir_vec = BA / length
+    perp = np.array([-dir_vec[1], dir_vec[0]])
+
+    # Vectorized local coordinates
+    PA = P - A # shape (H, W, 2)
+    x = PA[..., 0] * dir_vec[0] + PA[..., 1] * dir_vec[1]
+    y = PA[..., 0] * perp[0] + PA[..., 1] * perp[1]
+
+    hx, hy = length / 2.0, half_th
+    qx = x - hx
+    qy = y
+
+    # Compute distance to box
+    d_x = np.abs(qx) - hx
+    d_y = np.abs(qy) - hy
+    d = np.stack([d_x, d_y], axis=-1)
+
+    outside = np.maximum(d, 0)
+    dist_out = np.linalg.norm(outside, axis=-1)
+    inside = np.minimum(np.maximum(d[..., 0], d[..., 1]), 0)
+
+    return dist_out + inside
+
 def sdf_capsule(P: np.ndarray, 
                 A: np.ndarray, 
                 B: np.ndarray, 
@@ -134,6 +165,22 @@ def compute_rounded_sdf(width: int,
     if clip_zero:
         data = np.where(data < 0, 0, data)
     return data
+
+def compute_rounded_sdf_vectorized(width: int,
+                                   height: int,
+                                   origin: tuple[int, int],
+                                   destination: tuple[int, int],
+                                   parameter: float,
+                                   radius: float,
+                                   clip_zero: bool,
+                                   sdf: Callable) -> np.ndarray:
+    A       = np.array([origin[0], origin[1]])
+    B       = np.array([destination[0], destination[1]])
+    data    = np.zeros([height, width])
+
+    X, Y    = np.meshgrid(np.arange(width), np.arange(height))
+    P       = np.stack([X, Y], axis=-1)
+    data    = round(P, A, B, parameter, radius, sdf)
 
 # --- top-level helper ---
 def _compute_rounded_sdf_task(args):
