@@ -1,11 +1,11 @@
 import numpy as np
 
 class CoLACut():
-    def __init__(self, cell_center: tuple[int, int], offset_bound: int, max_length: int, seed: int = 42):
+    def __init__(self, cell_center: tuple[int, int], offset_bound: int, min_length: int, max_length: int, seed: int = 42):
         np.random.seed(seed)
         offset_bound_half = offset_bound // 2
         self.cut_center     = (cell_center[0] + np.random.randint(offset_bound) - offset_bound_half, cell_center[1] + np.random.randint(offset_bound) - offset_bound_half)
-        self.cut_length     = np.random.randint(max_length)
+        self.cut_length     = min_length + np.random.randint(max_length - min_length)
         self.cut_alpha      = np.deg2rad((np.random.rand() * 180) - 90)
 
         cut_axis_a  = self.cut_length // 2 

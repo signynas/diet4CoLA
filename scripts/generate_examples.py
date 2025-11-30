@@ -7,18 +7,20 @@ from pathlib import Path
 from tqdm import tqdm
 from concurrent.futures import ProcessPoolExecutor, as_completed
 
-from diet4cola.advection import advect_backward_sim
+from diet4cola.advection import advect_backward_sim, advect_forward_sim
 from diet4cola.cut import CoLACut
 from diet4cola.cortex import Cortex, CortexSpec, generate_cortex_example
 from diet4cola.mask import mask_on_condition
-from diet4cola.operations import invert, directional_gradients 
+from diet4cola.operations import invert, directional_gradients, blur, mul
 from diet4cola.velocity import compute_velocity_fields, prior_exp
-from diet4cola.sdf import sdf_box, compute_rounded_sdfs
+from diet4cola.sdf import sdf_box, sdf_capsule, compute_rounded_sdfs
 from diet4cola.utils import save_array, load_array
 
 # Grid parameters
 WIDTH = 512
 HEIGHT = 512
+
+MULTIPLIER = 1.0 / 0.05035490409067586
 
 def initialize_velocity_exponential(alpha: float, t: float, k: float) -> float:
     return alpha * np.exp(-t * k)
@@ -38,7 +40,7 @@ def gen_advected_cortex_worker(idx: int, out: str, step: float, max_offset: int,
 
     # 2. Generate Cortex (Initial State)
     spec = CortexSpec()
-    seed = np.random.randint(0, 1e8)
+    seed = np.random.randint(0, 1000000000)
     np.random.seed(seed)
     spec.seed = seed
     spec.max_center_offset = max_offset
@@ -47,29 +49,31 @@ def gen_advected_cortex_worker(idx: int, out: str, step: float, max_offset: int,
     cortex = generate_cortex_example(spec)
 
     # Calculate cut center (randomized offset as in notebook Cell 3)
-    off_x = WIDTH // 2 + (np.random.randint(32) - 16)
-    off_y = HEIGHT // 2 + (np.random.randint(32) - 16)
+    off_x = WIDTH // 2 + (np.random.randint(256) - 128)
+    off_y = HEIGHT // 2 + (np.random.randint(256) - 128)
     
     # 3. Create CoLA Cut
-    cola_cut = CoLACut((off_x, off_y), 32, 150, seed)
+    cola_cut = CoLACut((off_x, off_y), 128, 100, 200, seed)
 
     # 4. Compute Time-Dependent SDF/Velocity Parameters
     # 4a. Sample initial parameters
-    sdf_radius = np.random.rand() * 5 # Max SDF radius parameter of 5
-    alpha = np.random.rand() * 10 # Max initial velocity of 10
-    falloff_distance = np.random.randint(0, 150) # Max falloff distance of 150
-    use_exponential = np.random.rand() > 0.5
+    sdf_radius = np.random.rand() * 5               # Max SDF radius parameter of 5
+    falloff_distance = np.random.randint(0, 100)    # Max falloff distance of 100
+    k = np.random.rand() * 0.5
 
-    if use_exponential:
-        k = np.random.rand() * 0.5
-    else:
-        k = np.random.rand() * 10
+    # 4b. Sample initial velocity (based on annotated data)
+    v_0_mean = 3.146
+    v_0_stddev = 1.002
+    v_0 = max(0.5, np.random.normal(v_0_mean, v_0_stddev))    # Initial velocity based on mean and stddev of data
 
-    # 4b. Create velocity profiles for the edge of the SDF
-    initial_velocities = np.array([initialize_velocity_exponential(alpha, t, k) if use_exponential else initialize_velocity_hyperbolic(alpha, t, k) for t in timepoints])
-    inverted_initial_velocities_normalized = invert(initial_velocities / alpha)
+    #v_0 = v_0 * MULTIPLIER # Multiplier to account for scale difference!
+    #print(v_0)
+
+    # 4c. Create velocity profiles for the edge of the SDF
+    initial_velocities = np.array([initialize_velocity_exponential(v_0, t, k) for t in timepoints])
+    inverted_initial_velocities_normalized = invert(initial_velocities / v_0)
     
-    # 4c. Create radius and width of the cut over time
+    # 4d. Create radius and width of the cut over time
     radii = [0] * iterations
     widths = [0] * iterations
 
@@ -79,7 +83,7 @@ def gen_advected_cortex_worker(idx: int, out: str, step: float, max_offset: int,
             widths[i] = 0
             continue
 
-        radii[i] = inverted_initial_velocities_normalized[i] * sdf_radius
+        #radii[i] = inverted_initial_velocities_normalized[i] * sdf_radius
         widths[i] = widths[i - 1] + time_step * initial_velocities[i]
 
     # 5. Compute SDF and Velocity Fields
@@ -97,10 +101,27 @@ def gen_advected_cortex_worker(idx: int, out: str, step: float, max_offset: int,
     masked_velocity_fields = np.array([vf * msdf for (vf, msdf) in zip(velocity_fields, masked_sdf_fields)])
     masked_velocity_fields[0, :, :] = np.where(clipped_rounded_sdf_fields[0, :, :] < 1, masked_velocity_fields[0, :, :], 0)
     
-    # 5e. Compute SDF gradients
+    # 5e. Multiply the masked velocity fields, this time with the cell mask (i.e. ONLY get a velocity field along the cell)
+    cell_boundary = cortex.cell_mask
+    masked_velocity_fields = masked_velocity_fields * cell_boundary
+    #velocity_fields = velocity_fields * cell_boundary
+
+    # 5f. Compute SDF gradients
     sdf_gradients = directional_gradients(clipped_rounded_sdf_fields)
     sdf_dys = sdf_gradients[:, 0, :, :]
     sdf_dxs = sdf_gradients[:, 1, :, :]
+
+    # 5g. Normalize the SDF gradients, s.t. we can infer velocity in dx and dy directions
+    grad_mag = np.sqrt(sdf_dxs ** 2 + sdf_dys ** 2 + 1e-8)
+    norm_dxs = sdf_dxs / grad_mag
+    norm_dys = sdf_dys / grad_mag
+
+    # 5h. Compute velocity components vel_dxs and vel_dys
+    vel_dxs = norm_dxs * velocity_fields
+    vel_dys = norm_dys * velocity_fields
+
+    # 5i. Compute blurred SDF fields 
+    blurred_masked_sdf_fields = np.array([blur(sdf.astype(np.float64), (5, 5), 5) for sdf in masked_sdf_fields])
 
     # 6. Perform Backward Advection 
     # 6a. Backward advection for the actomyosin cortex
@@ -108,29 +129,13 @@ def gen_advected_cortex_worker(idx: int, out: str, step: float, max_offset: int,
         cortex.data, 
         sdf_dxs, 
         sdf_dys, 
-        masked_velocity_fields, 
+        velocity_fields, 
         iterations, 
         time_step
     )
 
-    # 6b. Backward advection for the myosin and actin layers separately
-    advected_myosin = advect_backward_sim(
-        cortex.myosin_channel,
-        sdf_dxs,
-        sdf_dys,
-        masked_velocity_fields,
-        iterations, 
-        time_step
-    )
-
-    advected_actin = advect_backward_sim(
-        cortex.actin_channel,
-        sdf_dxs,
-        sdf_dys,
-        masked_velocity_fields,
-        iterations, 
-        time_step
-    )
+    # 6b. Multiply the advected cortices with the blurred SDF fields to obtain a similar data representation as the actual input.
+    advected_cortex = mul(advected_cortex, blurred_masked_sdf_fields)
     
     # 7. Save the advected fields and the velocity field
     # 7a. Generate a UUID for this cell, just have a unique identifier
@@ -138,16 +143,19 @@ def gen_advected_cortex_worker(idx: int, out: str, step: float, max_offset: int,
 
     # 7b. Save the advected cortex and its separate layers
     save_array(advected_cortex, Path(out) / f'cortex_{cell_uuid}_actomyosin.npy')
-    save_array(advected_myosin, Path(out) / f'cortex_{cell_uuid}_myosin.npy')
-    save_array(advected_actin, Path(out) / f'cortex_{cell_uuid}_actin.npy')
 
     # 7c. Save the velocity field that was used to advect the cortex
-    save_array(masked_velocity_fields, Path(out) / f'cortex_{cell_uuid}_velocity_field.npy')
+    save_array(velocity_fields, Path(out) / f'cortex_{cell_uuid}_velocity_field.npy')
+    save_array(vel_dxs, Path(out) / f'cortex_{cell_uuid}_velocity_field_dx.npy')
+    save_array(vel_dys, Path(out) / f'cortex_{cell_uuid}_velocity_field_dy.npy')
+
+    save_array(cell_boundary, Path(out) / f'cortex_{cell_uuid}_boundary.npy')
 
     # Return useful metadata
     return {
         # General metadata for reproduction
         'idx': idx,
+        'uuid': cell_uuid,
         'seed': seed,
 
         # Cell metadata
@@ -162,9 +170,9 @@ def gen_advected_cortex_worker(idx: int, out: str, step: float, max_offset: int,
 
         # Velocity metadata
         'sdf_radius': sdf_radius,
-        'initial_velocity': alpha,
+        'initial_velocity': v_0,
         'falloff_distance': falloff_distance,
-        'prior': 'exponential' if use_exponential else 'hyperbolic',
+        'prior': 'exponential',
 
         # Simulation metadata
         'width': WIDTH,
@@ -204,6 +212,7 @@ def main():
     # Define a custom header for the new metadata
     csv_header = [
         'idx', 
+        'uuid',
         'seed', 
         'cell_extent', 
         'cell_angle', 

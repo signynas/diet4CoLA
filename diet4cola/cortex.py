@@ -26,6 +26,7 @@ class Cortex:
     actin_channel: np.ndarray               = None,
     cell_angle: float                       = 0
     cell_extent: tuple[int, int]            = (0, 0)
+    cell_mask: np.ndarray                   = None,
 
 def generate_cortex_example(spec: CortexSpec) -> Cortex:
     seed = spec.seed
@@ -62,4 +63,4 @@ def generate_cortex_example(spec: CortexSpec) -> Cortex:
     actomyosin_layer = normalize(actomyosin_layer)
 
     # Return all data
-    return Cortex(actomyosin_layer, myosin_layer, actin_layer, cell_angle, extent)
+    return Cortex(actomyosin_layer, myosin_layer, actin_layer, cell_angle, extent, mask)
