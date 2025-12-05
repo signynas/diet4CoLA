@@ -74,7 +74,7 @@ class UpConvResidual(nn.Module):
     
 
 class UNet(nn.Module):
-    def __init__(self, base_ch=32, in_ch = 2, out_ch=1):
+    def __init__(self, base_ch=32, in_ch = 2, out_ch=2):
         super().__init__()
 
         self.name = 'UNet'
