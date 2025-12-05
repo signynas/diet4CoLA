@@ -17,3 +17,19 @@ class CoLACut():
 
         self.cut_origin         = (self.cut_center[0] - a_x, self.cut_center[1] + origin_offset_y)
         self.cut_destination    = (self.cut_center[0] + a_x, self.cut_center[1] + destination_offset_y)
+
+class FixedCoLACut():
+    def __init__(self, cut_center: tuple[int, int], cut_length: int, cut_angle: float):
+        self.cut_center     = cut_center
+        self.cut_length     = cut_length
+        self.cut_alpha      = np.deg2rad(cut_angle)
+
+        cut_axis_a  = self.cut_length // 2 
+        a_y         = cut_axis_a * np.sin(self.cut_alpha)
+        a_x         = a_y / np.tan(self.cut_alpha)
+
+        origin_offset_y         = -a_y if self.cut_alpha < 0 else a_y
+        destination_offset_y    = a_y if self.cut_alpha < 0 else -a_y
+
+        self.cut_origin         = (self.cut_center[0] - a_x, self.cut_center[1] + origin_offset_y)
+        self.cut_destination    = (self.cut_center[0] + a_x, self.cut_center[1] + destination_offset_y)
