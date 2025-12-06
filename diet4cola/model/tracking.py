@@ -42,7 +42,7 @@ def get_motion_fields(frames: np.ndarray, model: nn.Module) -> np.ndarray:
 
     return np.stack(outputs)
 
-def get_trajectories(points: np.ndarray, frames: np.ndarray, model: nn.Module) -> np.ndarray:
+def get_trajectories(points: np.ndarray, frames: np.ndarray, model: nn.Module) -> dict:
     if points.ndim != 2:
         raise ValueError("Expected three dimensions <num_points, 2>")
     if points.shape[1] != 2:
@@ -75,3 +75,5 @@ def get_trajectories(points: np.ndarray, frames: np.ndarray, model: nn.Module) -
             next_y = previous_position[1] + v_y
 
             trajectories[i].append(np.array([next_x, next_y]))
+    
+    return trajectories
