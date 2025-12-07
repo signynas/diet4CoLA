@@ -8,9 +8,9 @@ from diet4cola.model.models import UNet
 
 DEVICE = 'cpu'
 
-def load_unet_model(id: str) -> nn.Module:
+def load_unet_model(path: str) -> nn.Module:
     model = UNet(base_ch=32, in_ch=2, out_ch=2)
-    model.load_state_dict(torch.load(f'../../models/model_{id}'))
+    model.load_state_dict(torch.load(f'{path}'))
     model.to(DEVICE)
     model.eval()
 

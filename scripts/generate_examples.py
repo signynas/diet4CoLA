@@ -4,6 +4,7 @@ import numpy as np
 import shortuuid
 
 from pathlib import Path
+from scipy.ndimage import rotate, zoom, shift
 from tqdm import tqdm
 from concurrent.futures import ProcessPoolExecutor, as_completed
 
@@ -20,7 +21,8 @@ from diet4cola.utils import save_array, load_array
 WIDTH = 512
 HEIGHT = 512
 
-MULTIPLIER = 1.0 / 0.05035490409067586
+#MULTIPLIER = 1 / 0.05035490409067586
+MULTIPLIER = 2
 
 def initialize_velocity_exponential(alpha: float, t: float, k: float) -> float:
     return alpha * np.exp(-t * k)
@@ -28,11 +30,70 @@ def initialize_velocity_exponential(alpha: float, t: float, k: float) -> float:
 def initialize_velocity_hyperbolic(alpha: float, t: float, k: float) -> float:
     return (alpha ** 2) * (1.0 / (k * t + alpha))
 
+def augment_array_chw(arr,
+                      rotate_deg=0,
+                      scale_factor=1.0,
+                      translate=(0, 0)):
+    C, H, W = arr.shape
+    out = np.zeros_like(arr)
+
+    for c in range(C):
+        out[c] = augment_single_2d(arr[c],
+                                   rotate_deg=rotate_deg,
+                                   scale_factor=scale_factor,
+                                   translate=translate)
+
+    return out
+
+def augment_single_2d(arr,
+                      rotate_deg=0,
+                      scale_factor=1.0,
+                      translate=(0, 0)):
+
+        # 1. Rotate around center
+        arr_rot = rotate(arr, rotate_deg, reshape=False,
+                         order=1, mode='constant', cval=0.0)
+
+        # 2. Scale around center
+        if scale_factor != 1.0:
+            scaled = zoom(arr_rot, scale_factor, order=1)
+            sh, sw = scaled.shape
+            H, W = arr.shape
+            out = np.zeros_like(arr)
+
+            # center placement
+            start_y = (H - sh) // 2
+            start_x = (W - sw) // 2
+
+            y0_src = max(0, -start_y); y0_dst = max(0, start_y)
+            x0_src = max(0, -start_x); x0_dst = max(0, start_x)
+
+            y1_src = y0_src + min(H - y0_dst, sh - y0_src)
+            x1_src = x0_src + min(W - x0_dst, sw - x0_src)
+
+            out[
+                y0_dst:y0_dst+(y1_src - y0_src),
+                x0_dst:x0_dst+(x1_src - x0_src)
+            ] = scaled[y0_src:y1_src, x0_src:x1_src]
+
+            arr_scaled = out
+        else:
+            arr_scaled = arr_rot
+
+        # 3. Shift (zero padding)
+        arr_shifted = shift(arr_scaled,
+                            shift=translate,
+                            order=1,
+                            mode='constant',
+                            cval=0.0)
+
+        return arr_shifted
+
 def gen_advected_cortex_worker(idx: int, out: str, step: float, max_offset: int, extent_major: int,
-                               extent_minor: int) -> dict:
+                               extent_minor: int, t_max: float) -> dict:
     # 1. Simulation Parameters
     t_min = 0.0
-    t_max = 10.0  # Total simulation time (in seconds)
+    t_max = t_max  # Total simulation time (in seconds)
     time_step = step
     timepoints = np.arange(t_min, t_max + time_step, time_step)
     iterations = len(timepoints)
@@ -49,11 +110,11 @@ def gen_advected_cortex_worker(idx: int, out: str, step: float, max_offset: int,
     cortex = generate_cortex_example(spec)
 
     # Calculate cut center (randomized offset as in notebook Cell 3)
-    off_x = WIDTH // 2 + (np.random.randint(256) - 128)
-    off_y = HEIGHT // 2 + (np.random.randint(256) - 128)
+    off_x = WIDTH // 2 + (np.random.randint(64) - 32)
+    off_y = HEIGHT // 2 + (np.random.randint(64) - 32)
     
-    # 3. Create CoLA Cut
-    cola_cut = CoLACut((off_x, off_y), 128, 100, 200, seed)
+    # 3. Create CoLA Cut    
+    cola_cut = CoLACut((off_x, off_y), 64, 150, 200, seed)
 
     # 4. Compute Time-Dependent SDF/Velocity Parameters
     # 4a. Sample initial parameters
@@ -64,14 +125,12 @@ def gen_advected_cortex_worker(idx: int, out: str, step: float, max_offset: int,
     # 4b. Sample initial velocity (based on annotated data)
     v_0_mean = 3.146
     v_0_stddev = 1.002
-    v_0 = max(0.5, np.random.normal(v_0_mean, v_0_stddev))    # Initial velocity based on mean and stddev of data
+    v_0 = max(0.0, np.random.normal(v_0_mean, v_0_stddev))    # Initial velocity based on mean and stddev of data
 
-    #v_0 = v_0 * MULTIPLIER # Multiplier to account for scale difference!
-    #print(v_0)
+    v_0 = v_0 * MULTIPLIER # Multiplier to account for scale difference!
 
     # 4c. Create velocity profiles for the edge of the SDF
     initial_velocities = np.array([initialize_velocity_exponential(v_0, t, k) for t in timepoints])
-    inverted_initial_velocities_normalized = invert(initial_velocities / v_0)
     
     # 4d. Create radius and width of the cut over time
     radii = [0] * iterations
@@ -79,16 +138,14 @@ def gen_advected_cortex_worker(idx: int, out: str, step: float, max_offset: int,
 
     for i in range(iterations):
         if i == 0:
-            radii[i] = 0
             widths[i] = 0
             continue
 
-        #radii[i] = inverted_initial_velocities_normalized[i] * sdf_radius
         widths[i] = widths[i - 1] + time_step * initial_velocities[i]
 
     # 5. Compute SDF and Velocity Fields
     # 5a. Compute SDF fields
-    sdf_fields = compute_rounded_sdfs(WIDTH, HEIGHT, cola_cut.cut_origin, cola_cut.cut_destination, widths, radii, False, sdf_box, iterations)
+    sdf_fields = compute_rounded_sdfs(WIDTH, HEIGHT, cola_cut.cut_origin, cola_cut.cut_destination, widths, radii, False, sdf_capsule, iterations)
     
     # 5b. Create SDF Masks and Clipped SDF
     masked_sdf_fields = np.array([mask_on_condition(sdf < 0, 0, 1) for sdf in sdf_fields]) 
@@ -104,7 +161,6 @@ def gen_advected_cortex_worker(idx: int, out: str, step: float, max_offset: int,
     # 5e. Multiply the masked velocity fields, this time with the cell mask (i.e. ONLY get a velocity field along the cell)
     cell_boundary = cortex.cell_mask
     masked_velocity_fields = masked_velocity_fields * cell_boundary
-    #velocity_fields = velocity_fields * cell_boundary
 
     # 5f. Compute SDF gradients
     sdf_gradients = directional_gradients(clipped_rounded_sdf_fields)
@@ -137,6 +193,21 @@ def gen_advected_cortex_worker(idx: int, out: str, step: float, max_offset: int,
     # 6b. Multiply the advected cortices with the blurred SDF fields to obtain a similar data representation as the actual input.
     advected_cortex = mul(advected_cortex, blurred_masked_sdf_fields)
     
+    # 6d. Better training if velocity field is multiplied by actomyosin layer? (Black pixels can't move)
+    vel_dxs = vel_dxs * advected_cortex
+    vel_dys = vel_dys * advected_cortex
+
+    # 6c. Diversify
+    aug_angle = 0 #np.random.randint(360)
+    aug_scale = 1 #np.random.rand() * 2
+    aug_trans = (np.random.randint(128) - 64, np.random.randint(128) - 64)
+
+    advected_cortex = augment_array_chw(advected_cortex, aug_angle, aug_scale, aug_trans)
+    velocity_fields = augment_array_chw(velocity_fields, aug_angle, aug_scale, aug_trans)
+    vel_dxs = augment_array_chw(vel_dxs, aug_angle, aug_scale, aug_trans)
+    vel_dys = augment_array_chw(vel_dys, aug_angle, aug_scale, aug_trans)
+    cell_boundary = augment_single_2d(cell_boundary, aug_angle, aug_scale, aug_trans)
+
     # 7. Save the advected fields and the velocity field
     # 7a. Generate a UUID for this cell, just have a unique identifier
     cell_uuid = shortuuid.uuid()
@@ -190,14 +261,15 @@ def main():
     parser.add_argument("--out", type=str, default="./data", help="Output directory for generated data")
     parser.add_argument("--step", type=float, default=0.5, help="Timestep to use in the advection simulation")
     parser.add_argument("--max_offset", type=int, default=100, help="Max offset from center for cell placement")
-    parser.add_argument("--extent_long", type=int, default=450, help="Max extent for the major axis of the cell")
+    parser.add_argument("--extent_long", type=int, default=300, help="Max extent for the major axis of the cell")
     parser.add_argument("--extent_short", type=int, default=300, help="Max extent for the minor axis of the cell")
+    parser.add_argument("--t_max", type=float, default=5, help="Time of the simulation")
     args = parser.parse_args()
 
     Path(args.out).mkdir(exist_ok=True)
 
     # Prepare tasks
-    tasks = [(i, args.out, args.step, args.max_offset, args.extent_long, args.extent_short) for i in range(args.n)]
+    tasks = [(i, args.out, args.step, args.max_offset, args.extent_long, args.extent_short, args.t_max) for i in range(args.n)]
 
     results = [0] * args.n
     with ProcessPoolExecutor(max_workers=args.workers) as executor:
