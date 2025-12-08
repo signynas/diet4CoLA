@@ -60,17 +60,24 @@ def get_trajectories(points: np.ndarray, frames: np.ndarray, model: nn.Module) -
     num_points = points.shape[0]
 
     trajectories = {}
+
+    # Create trajectory for each point
     for i in range(num_points):
         point = points[i]
         trajectories[i] = [point]
 
     index = 1
+
+    # Move over every velocity field
     for vf in tqdm(velocity_fields, desc='Tracking...'):
+        # Obtain the velocity field components
         vf_x = vf[0]
         vf_y = vf[1]
 
+        # Iterate over every point
         for i in range(num_points):
-            point = points[i]
+            # Obtain the point and its previous position
+            point = points[i] 
             previous_position = (trajectories[i])[index - 1]
 
             ipx = int(previous_position[0])
@@ -83,5 +90,7 @@ def get_trajectories(points: np.ndarray, frames: np.ndarray, model: nn.Module) -
             next_y = previous_position[1] + v_y
 
             trajectories[i].append(np.array([next_x, next_y]))
+        
+        index = index + 1
     
     return trajectories, velocity_fields
