@@ -4,14 +4,22 @@ import torch.nn as nn
 import numpy as np
 from tqdm import tqdm
 
-from diet4cola.model.models import UNet
+from diet4cola.model.models import UNet, ResidualUNet
 
 DEVICE = 'cpu'
 
 def load_unet_model(path: str) -> nn.Module:
     model = UNet(base_ch=32, in_ch=2, out_ch=2)
-    model.load_state_dict(torch.load(f'{path}'))
     model.to(DEVICE)
+    model.load_state_dict(torch.load(f'{path}'))
+    model.eval()
+
+    return model
+
+def load_unet_residual_model(path: str) -> nn.Module:
+    model = ResidualUNet(base_ch=32, in_ch=2, out_ch=2)
+    model.to(DEVICE)
+    model.load_state_dict(torch.load(f'{path}'))
     model.eval()
 
     return model
@@ -76,4 +84,4 @@ def get_trajectories(points: np.ndarray, frames: np.ndarray, model: nn.Module) -
 
             trajectories[i].append(np.array([next_x, next_y]))
     
-    return trajectories
+    return trajectories, velocity_fields

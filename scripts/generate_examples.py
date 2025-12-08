@@ -194,8 +194,11 @@ def gen_advected_cortex_worker(idx: int, out: str, step: float, max_offset: int,
     advected_cortex = mul(advected_cortex, blurred_masked_sdf_fields)
     
     # 6d. Better training if velocity field is multiplied by actomyosin layer? (Black pixels can't move)
-    vel_dxs = vel_dxs * advected_cortex
-    vel_dys = vel_dys * advected_cortex
+    # TODO -> Make this a BINARY MASK based on advected cortex above some threshold!
+    threshold = 0.15
+    cortex_mask = (advected_cortex > threshold).astype(float)
+    vel_dxs = vel_dxs * cortex_mask
+    vel_dys = vel_dys * cortex_mask
 
     # 6c. Diversify
     aug_angle = 0 #np.random.randint(360)
