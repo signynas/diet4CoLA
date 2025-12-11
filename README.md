@@ -1,2 +1,2 @@
-# Displacement & Instantaneous Edge Tracking for COLA
-Computational framework to infer trajectories from Cortical Laser Ablation (COLA) experiments
+# Displaced Element Tracking for Cortical Laser Ablateion
+Computational framework to infer velocity fields from Cortical Laser Ablation (CoLA) experiments.
